@@ -31,3 +31,5 @@ C:\Users\roger\SummaCore\obj\Release\net10.0\refint\SummaCore.dll
 C:\Users\roger\SummaCore\obj\Release\net10.0\SummaCore.pdb
 C:\Users\roger\SummaCore\obj\Release\net10.0\SummaCore.genruntimeconfig.cache
 C:\Users\roger\SummaCore\obj\Release\net10.0\ref\SummaCore.dll
+C:\Users\roger\SummaCore\bin\Release\net10.0\13049552_identity.p12
+C:\Users\roger\SummaCore\obj\Release\net10.0\SummaCore.sourcelink.json

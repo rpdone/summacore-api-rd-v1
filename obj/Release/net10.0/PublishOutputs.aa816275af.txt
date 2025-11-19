@@ -1,3 +1,4 @@
+C:\Users\roger\SummaCore\bin\Release\net10.0\publish\13049552_identity.p12
 C:\Users\roger\SummaCore\bin\Release\net10.0\publish\SummaCore.exe
 C:\Users\roger\SummaCore\bin\Release\net10.0\publish\appsettings.Development.json
 C:\Users\roger\SummaCore\bin\Release\net10.0\publish\appsettings.json

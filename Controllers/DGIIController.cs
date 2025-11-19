@@ -59,7 +59,7 @@ namespace SummaCore.Controllers
                 // 1. Cargar Certificado (Súbelo a tu proyecto en VS Code)
                 // OJO: En producción usa Azure Key Vault. Para este tutorial, archivo local.
                 var rutaCert = Path.Combine(Directory.GetCurrentDirectory(), "certificado.p12");
-                var passCert = "TU_CLAVE_DEL_CERTIFICADO"; // ¡Cámbialo!
+                var passCert = "Solutecdo2025@"; // ¡Cámbialo!
                 var certificado = new X509Certificate2(rutaCert, passCert);
 
                 // 2. Autenticarse con DGII

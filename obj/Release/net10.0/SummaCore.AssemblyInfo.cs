@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SummaCore")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ac12261647dbdcc2e57da289401ca6be7c62d6c8")]
 [assembly: System.Reflection.AssemblyProductAttribute("SummaCore")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SummaCore")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
