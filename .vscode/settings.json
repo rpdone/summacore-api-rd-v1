@@ -1,0 +1,5 @@
+{
+    "appService.preDeployTask": "publish-release",
+    "appService.deploySubpath": "bin\\Release\\net10.0\\publish",
+    "appService.defaultWebAppToDeploy": "/subscriptions/f89975e2-5f5e-415c-a3bf-96ee534b53ab/resourceGroups/SummaGroupMalaysia/providers/Microsoft.Web/sites/summacore-rd-api-v1"
+}
