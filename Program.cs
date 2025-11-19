@@ -1,41 +1,34 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// 1. AGREGAR SERVICIOS AL CONTENEDOR
+// Esta línea es vital: busca todos los archivos que terminen en "Controller"
+builder.Services.AddControllers(); 
+
+// Registrar tus servicios propios (para inyección de dependencias)
+builder.Services.AddScoped<SummaCore.Services.SignerService>();
+builder.Services.AddScoped<SummaCore.Services.DgiiService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// 2. CONFIGURAR EL PIPELINE HTTP
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseDeveloperExceptionPage();
 }
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+app.UseAuthorization();
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+// 3. ACTIVAR LAS RUTAS
+// Esta línea le dice a la app: "Si alguien llama a una URL, busca en los Controladores"
+app.MapControllers(); 
+
+// Mensaje por defecto en la raíz (para saber si la app vive)
+app.MapGet("/", () => "¡SummaCore API está corriendo! Usa /api/pruebas/ejecutar-paso2");
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

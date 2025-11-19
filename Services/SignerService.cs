@@ -1,7 +1,6 @@
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Cryptography.Xml;
 using System.Xml;
-using SummaCore.Models;
 
 namespace SummaCore.Services
 {
@@ -10,7 +9,8 @@ namespace SummaCore.Services
         public string FirmarECF(string xmlSinFirma, X509Certificate2 certificado)
         {
             var doc = new XmlDocument();
-            doc.PreserveWhitespace = true; // VITAL: Si borras espacios, la firma se rompe
+            // IMPORTANTE: PreserveWhitespace true es vital para que la firma sea matemáticamente válida
+            doc.PreserveWhitespace = true; 
             doc.LoadXml(xmlSinFirma);
 
             var signedXml = new SignedXml(doc)
@@ -18,26 +18,32 @@ namespace SummaCore.Services
                 SigningKey = certificado.GetRSAPrivateKey()
             };
 
-            // Referencia al documento entero
+            // 1. Configurar Canonicalización Exclusiva (Estándar DGII)
+            signedXml.SignedInfo.CanonicalizationMethod = SignedXml.XmlDsigExcC14NTransformUrl;
+
+            // 2. Referencia (Firmar todo el documento)
             var reference = new Reference("");
-            reference.AddTransform(new XmlDsigEnvelopedSignatureTransform()); // La firma va DENTRO del XML
+            reference.AddTransform(new XmlDsigEnvelopedSignatureTransform());
+            reference.AddTransform(new XmlDsigExcC14NTransform()); 
             signedXml.AddReference(reference);
 
-            // Información de la llave (KeyInfo) - Requerido por DGII
+            // 3. KeyInfo (Solo X509Data limpio, sin SubjectName para evitar conflictos)
             var keyInfo = new KeyInfo();
-            // DGII pide X509Data con SubjectName y Certificate
             var keyInfoData = new KeyInfoX509Data(certificado);
-            keyInfoData.AddSubjectName(certificado.Subject); 
+            // No agregamos SubjectName para reducir riesgo de "Archivo no válido"
             keyInfo.AddClause(keyInfoData);
             signedXml.KeyInfo = keyInfo;
 
-            // Calcular firma
+            // 4. Calcular firma
             signedXml.ComputeSignature();
 
-            // Insertar la firma en el XML
+            // 5. Insertar firma
             var xmlSignature = signedXml.GetXml();
             doc.DocumentElement!.AppendChild(doc.ImportNode(xmlSignature, true));
 
+            // TRUCO: Retornar OuterXml limpio.
+            // Si hubiera declaración <?xml...?> al principio, a veces conviene quitarla para endpoints SOAP/REST viejos,
+            // pero OuterXml del elemento raíz suele ser seguro.
             return doc.OuterXml;
         }
     }
