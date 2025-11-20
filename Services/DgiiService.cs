@@ -1,6 +1,11 @@
-using System.Security.Cryptography.X509Certificates;
+using System;
+using System.IO;
 using System.Text;
+using System.Net.Http;
+using System.Threading.Tasks;
 using System.Xml;
+using System.Security.Cryptography.X509Certificates;
+using Microsoft.Extensions.Logging;
 
 namespace SummaCore.Services
 {
@@ -8,88 +13,233 @@ namespace SummaCore.Services
     {
         private readonly HttpClient _http;
         private readonly SignerService _signer;
+        private readonly ILogger<DgiiService>? _logger;
         
-        // URLs de AMBIENTE DE CERTIFICACIÓN (Pruebas)
-        // Verificadas según documentación técnica
+        // URLs AMBIENTE DE CERTIFICACIÓN (CerteCF)
         private const string URL_SEMILLA = "https://ecf.dgii.gov.do/CerteCF/Autenticacion/api/Autenticacion/Semilla";
         private const string URL_TOKEN = "https://ecf.dgii.gov.do/CerteCF/Autenticacion/api/Autenticacion/ValidarSemilla";
         private const string URL_RECEPCION = "https://ecf.dgii.gov.do/CerteCF/Recepcion/api/eCF";
 
-        public DgiiService(SignerService signer)
+        public DgiiService(SignerService signer, ILogger<DgiiService>? logger = null)
         {
             _http = new HttpClient();
             _signer = signer;
+            _logger = logger;
+            
+            // Agregar headers por defecto
+            _http.DefaultRequestHeaders.Add("Accept", "application/xml");
         }
 
         public async Task<string> Autenticar(X509Certificate2 certificado)
         {
-            // 1. OBTENER SEMILLA (Bytes crudos para evitar problemas de codificación inicial)
-            var semillaBytes = await _http.GetByteArrayAsync(URL_SEMILLA);
-            
-            // Decodificar UTF-8 manualmente
-            string semillaXml = Encoding.UTF8.GetString(semillaBytes);
-
-            // LIMPIEZA 1: Eliminar BOM (Byte Order Mark) invisible si existe al inicio
-            if (semillaXml.StartsWith("\uFEFF")) semillaXml = semillaXml.Substring(1);
-            
-            // LIMPIEZA 2: Eliminar declaración XML si la DGII la envió, para evitar duplicados al firmar
-            // Buscamos el inicio del tag raíz <SemillaModel>
-            int startIndex = semillaXml.IndexOf("<SemillaModel");
-            if (startIndex > 0) semillaXml = semillaXml.Substring(startIndex);
-
-            // 2. FIRMAR SEMILLA
-            var semillaFirmada = _signer.FirmarECF(semillaXml, certificado);
-
-            // LIMPIEZA 3 (CRÍTICA): Asegurar que lo que enviamos NO tenga <?xml version...?>
-            // Muchos validadores de DGII fallan si el POST body tiene la declaración.
-            if (semillaFirmada.StartsWith("<?xml"))
+            try
             {
-                int rootIndex = semillaFirmada.IndexOf("<SemillaModel");
-                if (rootIndex > 0) semillaFirmada = semillaFirmada.Substring(rootIndex);
+                // *** PASO 1: OBTENER SEMILLA ***
+                _logger?.LogInformation("[1] Obteniendo semilla...");
+                var semillaResponse = await _http.GetAsync(URL_SEMILLA);
+                
+                if (!semillaResponse.IsSuccessStatusCode)
+                {
+                    throw new Exception($"Error obteniendo semilla: {semillaResponse.StatusCode}");
+                }
+                
+                // Leer como bytes para evitar problemas de encoding
+                var semillaBytes = await semillaResponse.Content.ReadAsByteArrayAsync();
+                string semillaXml = Encoding.UTF8.GetString(semillaBytes);
+                
+                _logger?.LogInformation("Semilla recibida (primeros 200 chars): {SemillaPreview}", 
+                    semillaXml.Substring(0, Math.Min(200, semillaXml.Length)));
+
+                // *** LIMPIEZA: Eliminar BOM y declaración XML ***
+                semillaXml = LimpiarXML(semillaXml);
+                
+                _logger?.LogInformation("Semilla limpia (primeros 200 chars): {SemillaLimpiaPreview}", 
+                    semillaXml.Substring(0, Math.Min(200, semillaXml.Length)));
+
+                // *** PASO 2: FIRMAR SEMILLA ***
+                _logger?.LogInformation("[2] Firmando semilla...");
+                var semillaFirmada = _signer.FirmarECF(semillaXml, certificado);
+                
+                // Guardar para debug
+                await File.WriteAllTextAsync("semilla_firmada_debug.xml", semillaFirmada);
+                _logger?.LogInformation("Semilla firmada guardada en: semilla_firmada_debug.xml");
+
+                // *** PASO 3: VALIDAR ESTRUCTURA ANTES DE ENVIAR ***
+                ValidarXMLFirmado(semillaFirmada);
+
+                // *** PASO 4: ENVIAR A VALIDAR (Obtener Token) ***
+                _logger?.LogInformation("[3] Enviando semilla firmada para validación...");
+                
+                // CRÍTICO: Content-Type debe ser "application/xml" sin charset
+                var content = new StringContent(semillaFirmada, Encoding.UTF8, "application/xml");
+                
+                // Forzar que NO se agregue charset automáticamente
+                content.Headers.ContentType!.CharSet = null;
+                
+                var tokenResponse = await _http.PostAsync(URL_TOKEN, content);
+                
+                // Leer respuesta
+                var responseBytes = await tokenResponse.Content.ReadAsByteArrayAsync();
+                var responseString = Encoding.UTF8.GetString(responseBytes);
+                
+                _logger?.LogInformation("Respuesta código: {StatusCode}", tokenResponse.StatusCode);
+                _logger?.LogInformation("Respuesta body: {ResponseBody}", responseString);
+
+                if (!tokenResponse.IsSuccessStatusCode) 
+                {
+                    throw new Exception($"Error DGII ({tokenResponse.StatusCode}): {responseString}");
+                }
+
+                // *** PASO 5: EXTRAER TOKEN ***
+                string tokenLimpio = ExtraerToken(responseString);
+                _logger?.LogInformation("Token obtenido (primeros 50 chars): {TokenPreview}...", 
+                    tokenLimpio.Substring(0, Math.Min(50, tokenLimpio.Length)));
+                
+                return tokenLimpio;
             }
-
-            // 3. ENVIAR A VALIDAR (Pedir Token)
-            // Usamos "application/xml" explícitamente
-            var content = new StringContent(semillaFirmada, Encoding.UTF8, "application/xml");
-            
-            var response = await _http.PostAsync(URL_TOKEN, content);
-            
-            // Leer respuesta como Bytes primero para evitar los caracteres extraños en el error
-            var responseBytes = await response.Content.ReadAsByteArrayAsync();
-            var responseString = Encoding.UTF8.GetString(responseBytes);
-
-            if (!response.IsSuccessStatusCode) 
+            catch (Exception ex)
             {
-                // Lanzar error con el contenido real descifrado
-                throw new Exception($"Error DGII ({response.StatusCode}): {responseString}");
+                _logger?.LogError(ex, "ERROR en Autenticar: {ErrorMessage}", ex.Message);
+                throw;
             }
-
-            // El responseString aquí es el XML del Token.
-            // Ejemplo: <AutenticacionModel><token>...</token>...</AutenticacionModel>
-            // Deberías parsearlo para sacar solo el valor del token.
-            return responseString; 
         }
 
-        public async Task<string> EnviarFactura(string xmlFirmado, string tokenXml)
+        public async Task<string> EnviarFactura(string xmlFirmado, string token)
         {
-            // PARSEAR TOKEN (Extracción rápida del string)
-            // Asumimos que tokenXml viene formato XML de DGII.
-            // Buscamos el valor dentro de <token>...</token>
-            string tokenLimpio = tokenXml;
-            if (tokenXml.Contains("<token>"))
+            try
             {
-                int start = tokenXml.IndexOf("<token>") + 7;
-                int end = tokenXml.IndexOf("</token>");
-                tokenLimpio = tokenXml.Substring(start, end - start);
+                _logger?.LogInformation("[ENVÍO] Enviando factura...");
+                
+                _http.DefaultRequestHeaders.Clear();
+                _http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+                _http.DefaultRequestHeaders.Add("Accept", "application/xml");
+
+                var content = new StringContent(xmlFirmado, Encoding.UTF8, "application/xml");
+                content.Headers.ContentType!.CharSet = null;
+                
+                var response = await _http.PostAsync(URL_RECEPCION, content);
+                
+                var responseBytes = await response.Content.ReadAsByteArrayAsync();
+                var responseString = Encoding.UTF8.GetString(responseBytes);
+                
+                _logger?.LogInformation("Respuesta envío: {StatusCode}", response.StatusCode);
+                _logger?.LogInformation("Body: {ResponseBody}", responseString);
+
+                return responseString;
             }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "ERROR en EnviarFactura: {ErrorMessage}", ex.Message);
+                throw;
+            }
+        }
 
-            _http.DefaultRequestHeaders.Clear();
-            _http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenLimpio);
+        // *** MÉTODOS AUXILIARES ***
+        
+        private string LimpiarXML(string xml)
+        {
+            // 1. Eliminar BOM (Byte Order Mark) invisible
+            if (xml.StartsWith("\uFEFF")) 
+                xml = xml.Substring(1);
+            
+            // 2. Eliminar declaración XML <?xml version...?>
+            if (xml.TrimStart().StartsWith("<?xml"))
+            {
+                int endDeclaration = xml.IndexOf("?>");
+                if (endDeclaration > 0)
+                {
+                    xml = xml.Substring(endDeclaration + 2).TrimStart();
+                }
+            }
+            
+            // 3. Asegurar que empieza con el tag raíz
+            xml = xml.Trim();
+            
+            return xml;
+        }
 
-            var content = new StringContent(xmlFirmado, Encoding.UTF8, "application/xml");
-            var response = await _http.PostAsync(URL_RECEPCION, content);
+        private void ValidarXMLFirmado(string xml)
+        {
+            try
+            {
+                var doc = new XmlDocument();
+                doc.LoadXml(xml);
+                
+                // Verificar que existe el nodo Signature
+                var ns = new XmlNamespaceManager(doc.NameTable);
+                ns.AddNamespace("ds", "http://www.w3.org/2000/09/xmldsig#");
+                
+                var signatureNode = doc.SelectSingleNode("//ds:Signature", ns);
+                if (signatureNode == null)
+                {
+                    throw new Exception("XML firmado no contiene nodo <Signature>");
+                }
+                
+                // Verificar CanonicalizationMethod
+                var canonNode = doc.SelectSingleNode("//ds:CanonicalizationMethod", ns);
+                if (canonNode != null)
+                {
+                    var algorithm = canonNode.Attributes?["Algorithm"]?.Value;
+                    _logger?.LogInformation("Canonicalización detectada: {Algorithm}", algorithm);
+                    
+                    // Debe ser C14N estándar
+                    if (algorithm != "http://www.w3.org/TR/2001/REC-xml-c14n-20010315")
+                    {
+                        _logger?.LogWarning("⚠️ ADVERTENCIA: Algoritmo de canonicalización inesperado: {Algorithm}", algorithm);
+                    }
+                }
+                
+                // Verificar SignatureMethod
+                var sigMethodNode = doc.SelectSingleNode("//ds:SignatureMethod", ns);
+                if (sigMethodNode != null)
+                {
+                    var algorithm = sigMethodNode.Attributes?["Algorithm"]?.Value;
+                    _logger?.LogInformation("Método de firma detectado: {Algorithm}", algorithm);
+                }
+                
+                _logger?.LogInformation("✓ Validación de estructura XML firmado: OK");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error validando XML firmado: {ex.Message}");
+            }
+        }
 
-            return await response.Content.ReadAsStringAsync();
+        private string ExtraerToken(string xmlResponse)
+        {
+            try
+            {
+                // El responseString es XML de DGII formato:
+                // <AutenticacionModel><token>...</token>...</AutenticacionModel>
+                
+                var doc = new XmlDocument();
+                doc.LoadXml(xmlResponse);
+                
+                // Buscar nodo token (puede o no tener namespace)
+                var tokenNode = doc.SelectSingleNode("//token");
+                if (tokenNode != null)
+                {
+                    return tokenNode.InnerText;
+                }
+                
+                // Fallback: buscar manualmente
+                if (xmlResponse.Contains("<token>"))
+                {
+                    int start = xmlResponse.IndexOf("<token>") + 7;
+                    int end = xmlResponse.IndexOf("</token>");
+                    if (end > start)
+                    {
+                        return xmlResponse.Substring(start, end - start);
+                    }
+                }
+                
+                throw new Exception("No se pudo extraer el token del XML de respuesta");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "ERROR extrayendo token. XML recibido: {XmlResponse}", xmlResponse);
+                throw;
+            }
         }
     }
 }
