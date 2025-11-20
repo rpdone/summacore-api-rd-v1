@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "dgSpecHash": "/A0xbEGoj7o=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\roger\\SummaCore\\SummaCore.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\roger\\.nuget\\packages\\microsoft.extensions.logging.azureappservices\\10.0.0\\microsoft.extensions.logging.azureappservices.10.0.0.nupkg.sha512",
+    "C:\\Users\\roger\\.nuget\\packages\\system.security.cryptography.pkcs\\10.0.0\\system.security.cryptography.pkcs.10.0.0.nupkg.sha512",
+    "C:\\Users\\roger\\.nuget\\packages\\system.security.cryptography.xml\\10.0.0\\system.security.cryptography.xml.10.0.0.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "NU1510",
+      "level": "Warning",
+      "message": "PackageReference System.Security.Cryptography.Xml will not be pruned. Consider removing this package from your dependencies, as it is likely unnecessary.",
+      "projectPath": "C:\\Users\\roger\\SummaCore\\SummaCore.csproj",
+      "warningLevel": 1,
+      "filePath": "C:\\Users\\roger\\SummaCore\\SummaCore.csproj",
+      "libraryId": "System.Security.Cryptography.Xml",
+      "targetGraphs": [
+        "net10.0"
+      ]
+    }
+  ]
+}
