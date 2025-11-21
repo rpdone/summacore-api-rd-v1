@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SummaCore")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a02b22ed79162ebffef9d5a6bc03a5ab1f32b4a7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+31ce2f0da451cb2cf2c51b772f3acd86f00ca384")]
 [assembly: System.Reflection.AssemblyProductAttribute("SummaCore")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SummaCore")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
