@@ -1,9 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Security.Cryptography.X509Certificates;
 using System.Xml.Serialization;
-using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using SummaCore.Services;
@@ -196,6 +197,168 @@ namespace SummaCore.Controllers
                     tipo = ex.GetType().Name,
                     detalles = ex.InnerException?.Message,
                     stack = ex.StackTrace?.Split('\n').Take(10).ToArray()
+                });
+            }
+        }
+
+        /// <summary>
+        /// Endpoint de diagnóstico para ver el XML firmado que se envía
+        /// GET: /api/pruebas/diagnostico-firma
+        /// </summary>
+        [HttpGet("diagnostico-firma")]
+        public async Task<IActionResult> DiagnosticoFirma()
+        {
+            try
+            {
+                _logger.LogInformation("=== DIAGNÓSTICO DE FIRMA ===");
+                
+                // 1. Obtener semilla de DGII
+                var http = new System.Net.Http.HttpClient();
+                http.DefaultRequestHeaders.Add("Accept", "application/xml");
+                
+                var urlSemilla = "https://ecf.dgii.gov.do/CerteCF/Autenticacion/api/Autenticacion/Semilla";
+                var response = await http.GetAsync(urlSemilla);
+                var semillaRaw = await response.Content.ReadAsStringAsync();
+                
+                // 2. Limpiar semilla (extraer solo <SemillaModel>)
+                int indexSemilla = semillaRaw.IndexOf("<SemillaModel");
+                string semillaLimpia = indexSemilla >= 0 ? semillaRaw.Substring(indexSemilla) : semillaRaw;
+                semillaLimpia = semillaLimpia.Trim();
+                
+                // 3. Cargar certificado
+                var rutaCert = Path.Combine(Directory.GetCurrentDirectory(), "13049552_identity.p12");
+                if (!System.IO.File.Exists(rutaCert))
+                {
+                    return BadRequest(new { error = "Certificado no encontrado", ruta = rutaCert });
+                }
+                
+                var passCert = "Solutecdo2025@";
+                var certificado = new X509Certificate2(rutaCert, passCert);
+                
+                // 4. Firmar
+                var xmlFirmado = _signer.FirmarECF(semillaLimpia, certificado);
+                
+                // 5. Extraer info de la firma para diagnóstico
+                var doc = new System.Xml.XmlDocument();
+                doc.LoadXml(xmlFirmado);
+                
+                var nsmgr = new System.Xml.XmlNamespaceManager(doc.NameTable);
+                nsmgr.AddNamespace("ds", "http://www.w3.org/2000/09/xmldsig#");
+                
+                var canonMethod = doc.SelectSingleNode("//ds:CanonicalizationMethod/@Algorithm", nsmgr)?.Value;
+                var sigMethod = doc.SelectSingleNode("//ds:SignatureMethod/@Algorithm", nsmgr)?.Value;
+                var digestMethod = doc.SelectSingleNode("//ds:DigestMethod/@Algorithm", nsmgr)?.Value;
+                var transforms = doc.SelectNodes("//ds:Transform/@Algorithm", nsmgr);
+                
+                var transformsList = new System.Collections.Generic.List<string>();
+                if (transforms != null)
+                {
+                    foreach (System.Xml.XmlNode t in transforms)
+                    {
+                        transformsList.Add(t.Value ?? "null");
+                    }
+                }
+                
+                return Ok(new {
+                    paso1_semillaOriginal = semillaRaw.Substring(0, Math.Min(200, semillaRaw.Length)) + "...",
+                    paso2_semillaLimpia = semillaLimpia.Substring(0, Math.Min(200, semillaLimpia.Length)) + "...",
+                    paso3_certificado = new {
+                        subject = certificado.Subject,
+                        thumbprint = certificado.Thumbprint,
+                        tieneClavePrivada = certificado.HasPrivateKey
+                    },
+                    paso4_firmaAnalisis = new {
+                        canonicalizationMethod = canonMethod,
+                        signatureMethod = sigMethod,
+                        digestMethod = digestMethod,
+                        transforms = transformsList,
+                        esperado_canonicalization = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
+                        esperado_signature = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
+                        esperado_digest = "http://www.w3.org/2001/04/xmlenc#sha256"
+                    },
+                    paso5_xmlFirmadoCompleto = xmlFirmado
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en diagnóstico firma: {Message}", ex.Message);
+                return BadRequest(new { 
+                    error = ex.Message, 
+                    tipo = ex.GetType().Name,
+                    stack = ex.StackTrace?.Split('\n').Take(5).ToArray()
+                });
+            }
+        }
+
+        /// <summary>
+        /// Endpoint de diagnóstico para ver qué devuelve la DGII
+        /// GET: /api/pruebas/diagnostico-semilla
+        /// </summary>
+        [HttpGet("diagnostico-semilla")]
+        public async Task<IActionResult> DiagnosticoSemilla()
+        {
+            try
+            {
+                _logger.LogInformation("=== DIAGNÓSTICO DE SEMILLA ===");
+                
+                var http = new System.Net.Http.HttpClient();
+                http.DefaultRequestHeaders.Add("Accept", "application/xml");
+                
+                var url = "https://ecf.dgii.gov.do/CerteCF/Autenticacion/api/Autenticacion/Semilla";
+                _logger.LogInformation("Llamando a: {Url}", url);
+                
+                var response = await http.GetAsync(url);
+                
+                // Leer como bytes crudos
+                var bytesRaw = await response.Content.ReadAsByteArrayAsync();
+                
+                // Convertir a hex para ver caracteres invisibles
+                var hexString = BitConverter.ToString(bytesRaw.Take(100).ToArray());
+                
+                // Convertir a string UTF8
+                var stringUtf8 = System.Text.Encoding.UTF8.GetString(bytesRaw);
+                
+                // Detectar BOM
+                bool tieneBOM = bytesRaw.Length >= 3 && 
+                                bytesRaw[0] == 0xEF && 
+                                bytesRaw[1] == 0xBB && 
+                                bytesRaw[2] == 0xBF;
+                
+                // Detectar si empieza con caracteres raros
+                var primeros20Chars = stringUtf8.Length > 20 ? stringUtf8.Substring(0, 20) : stringUtf8;
+                var primeros20CharCodes = string.Join(",", primeros20Chars.Select(c => ((int)c).ToString()));
+                
+                // Intentar encontrar el inicio del XML
+                int indexSemilla = stringUtf8.IndexOf("<SemillaModel");
+                int indexXmlDecl = stringUtf8.IndexOf("<?xml");
+                
+                _logger.LogInformation("Status: {Status}", response.StatusCode);
+                _logger.LogInformation("Content-Type: {ContentType}", response.Content.Headers.ContentType?.ToString());
+                _logger.LogInformation("Bytes totales: {Length}", bytesRaw.Length);
+                _logger.LogInformation("Tiene BOM: {TieneBOM}", tieneBOM);
+                _logger.LogInformation("Hex primeros 100 bytes: {Hex}", hexString);
+                
+                return Ok(new {
+                    status = response.StatusCode.ToString(),
+                    contentType = response.Content.Headers.ContentType?.ToString(),
+                    bytesTotales = bytesRaw.Length,
+                    tieneBOM = tieneBOM,
+                    hexPrimeros100Bytes = hexString,
+                    primeros20Caracteres = primeros20Chars,
+                    codigosCaracteres = primeros20CharCodes,
+                    indexSemillaModel = indexSemilla,
+                    indexXmlDeclaration = indexXmlDecl,
+                    contenidoCompleto = stringUtf8,
+                    contenidoLimpio = indexSemilla >= 0 ? stringUtf8.Substring(indexSemilla) : "NO ENCONTRADO"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en diagnóstico: {Message}", ex.Message);
+                return BadRequest(new { 
+                    error = ex.Message, 
+                    tipo = ex.GetType().Name,
+                    stack = ex.StackTrace?.Split('\n').Take(5).ToArray()
                 });
             }
         }

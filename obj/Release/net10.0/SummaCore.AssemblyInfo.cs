@@ -11,9 +11,9 @@ using System;
 using System.Reflection;
 
 [assembly: System.Reflection.AssemblyCompanyAttribute("SummaCore")]
-[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f12b8787464ee83fb2870b90b559014c84689f6c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d0e3ae1f4b1421d661bb3509c25a47b70c8d9855")]
 [assembly: System.Reflection.AssemblyProductAttribute("SummaCore")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SummaCore")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

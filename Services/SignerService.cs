@@ -45,8 +45,7 @@ namespace SummaCore.Services
             var keyInfo = new KeyInfo();
             var keyInfoData = new KeyInfoX509Data(certificado);
             
-            // Incluir SOLO el certificado, sin SubjectName ni otros datos
-            // que puedan causar conflictos con el validador de DGII
+            // Incluir SOLO el certificado
             keyInfoData.AddCertificate(certificado);
             
             keyInfo.AddClause(keyInfoData);
@@ -57,11 +56,14 @@ namespace SummaCore.Services
 
             // *** FIX 6: Insertar firma en el documento ***
             var xmlSignature = signedXml.GetXml();
-            doc.DocumentElement!.AppendChild(doc.ImportNode(xmlSignature, true));
+            
+            if (doc.DocumentElement != null)
+            {
+                doc.DocumentElement.AppendChild(doc.ImportNode(xmlSignature, true));
+            }
 
             // *** FIX 7: Retornar SIN declaración XML ***
-            // El OuterXml del DocumentElement no incluye <?xml version...?>
-            return doc.DocumentElement.OuterXml;
+            return doc.DocumentElement?.OuterXml ?? doc.OuterXml;
         }
     }
 }

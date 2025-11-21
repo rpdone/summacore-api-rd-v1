@@ -1,11 +1,13 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
-using System.Net.Http;
 using System.Threading.Tasks;
 using System.Xml;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
+using System.Net.Http;
+
 
 namespace SummaCore.Services
 {
@@ -142,17 +144,30 @@ namespace SummaCore.Services
             if (xml.StartsWith("\uFEFF")) 
                 xml = xml.Substring(1);
             
-            // 2. Eliminar declaración XML <?xml version...?>
-            if (xml.TrimStart().StartsWith("<?xml"))
+            // 2. Eliminar \r\n al inicio si existe
+            xml = xml.TrimStart('\r', '\n', ' ', '\t');
+            
+            // 3. Buscar directamente el inicio de <SemillaModel
+            int indexSemilla = xml.IndexOf("<SemillaModel");
+            if (indexSemilla > 0)
             {
-                int endDeclaration = xml.IndexOf("?>");
-                if (endDeclaration > 0)
+                // Hay contenido antes de <SemillaModel> (probablemente <?xml...?>)
+                xml = xml.Substring(indexSemilla);
+            }
+            else if (indexSemilla < 0)
+            {
+                // No encontró <SemillaModel>, intentar limpiar declaración XML genéricamente
+                if (xml.StartsWith("<?xml"))
                 {
-                    xml = xml.Substring(endDeclaration + 2).TrimStart();
+                    int endDeclaration = xml.IndexOf("?>");
+                    if (endDeclaration > 0)
+                    {
+                        xml = xml.Substring(endDeclaration + 2);
+                    }
                 }
             }
             
-            // 3. Asegurar que empieza con el tag raíz
+            // 4. Limpiar espacios/saltos de línea al inicio y final
             xml = xml.Trim();
             
             return xml;
