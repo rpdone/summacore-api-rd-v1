@@ -31,3 +31,11 @@ C:\Users\roger\SummaCore\obj\Release\net10.0\refint\SummaCore.dll
 C:\Users\roger\SummaCore\obj\Release\net10.0\SummaCore.pdb
 C:\Users\roger\SummaCore\obj\Release\net10.0\SummaCore.genruntimeconfig.cache
 C:\Users\roger\SummaCore\obj\Release\net10.0\ref\SummaCore.dll
+C:\Users\roger\SummaCore\bin\Release\net10.0\ClosedXML.dll
+C:\Users\roger\SummaCore\bin\Release\net10.0\ClosedXML.Parser.dll
+C:\Users\roger\SummaCore\bin\Release\net10.0\DocumentFormat.OpenXml.dll
+C:\Users\roger\SummaCore\bin\Release\net10.0\DocumentFormat.OpenXml.Framework.dll
+C:\Users\roger\SummaCore\bin\Release\net10.0\ExcelNumberFormat.dll
+C:\Users\roger\SummaCore\bin\Release\net10.0\RBush.dll
+C:\Users\roger\SummaCore\bin\Release\net10.0\SixLabors.Fonts.dll
+C:\Users\roger\SummaCore\bin\Release\net10.0\System.IO.Packaging.dll

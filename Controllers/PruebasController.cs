@@ -49,7 +49,7 @@ namespace SummaCore.Controllers
 
             var reporte = new List<object>();
             
-            var rncCertificado = _configuration["Dgii:Rnc"] ?? "130495527";
+            var rncCertificado = _configuration["Dgii:Rnc"] ?? "131487272";
             var certPath = _configuration["Dgii:CertificatePath"] ?? "13049552_identity.p12";
             var certPass = _configuration["Dgii:CertificatePassword"] ?? "Solutecdo2025@";
 
@@ -611,7 +611,83 @@ namespace SummaCore.Controllers
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
+    // =================================================================================
+// 6. ENDPOINT DE CONSULTA DE ESTATUS (NUEVO)
+// =================================================================================
+
+[HttpPost("consultar-estatus-lote")]
+public async Task<IActionResult> ConsultarEstatusLote([FromBody] List<string> trackIds)
+{
+    if (trackIds == null || trackIds.Count == 0)
+        return BadRequest("Debes enviar una lista de trackIds.");
+
+    var resultados = new List<object>();
+
+    // Configuración de certificado (reutilizamos la lógica existente)
+    var certPath = _configuration["Dgii:CertificatePath"] ?? "13049552_identity.p12";
+    var certPass = _configuration["Dgii:CertificatePassword"] ?? "Solutecdo2025@";
+    
+    var fullCertPath = Path.Combine(Directory.GetCurrentDirectory(), certPath);
+    if (!System.IO.File.Exists(fullCertPath))
+    {
+        fullCertPath = Path.Combine(AppContext.BaseDirectory, certPath);
+        if (!System.IO.File.Exists(fullCertPath))
+            return BadRequest($"No se encuentra el certificado en: {certPath}");
     }
+
+    try
+    {
+        // 1. Autenticar (UNA SOLA VEZ para todo el lote)
+        _logger.LogInformation("Autenticando para consulta masiva...");
+        var certificate = new X509Certificate2(fullCertPath, certPass);
+        var token = await _dgiiSender.Autenticar(certificate);
+
+        // 2. Iterar sobre los trackIds
+        int procesados = 0;
+        foreach (var trackId in trackIds)
+        {
+            procesados++;
+            // Pequeña pausa para no ser bloqueado por rate-limiting si son muchos
+            if (procesados % 5 == 0) await Task.Delay(500); 
+
+            try
+            {
+                // Llamada al servicio
+                string jsonRespuesta = await _dgiiSender.ConsultarEstado(trackId, token);
+                
+                // Agregamos el string JSON crudo o podrías deserializarlo si tienes un modelo
+                // Para simplicidad, lo devolvemos tal cual lo manda la DGII pero parseado a objeto anónimo
+                // para que el JSON final quede limpio.
+                try 
+                {
+                    var obj = System.Text.Json.JsonSerializer.Deserialize<object>(jsonRespuesta);
+                    resultados.Add(obj);
+                }
+                catch
+                {
+                    // Si falla la deserialización (ej. error HTML), guardamos el string
+                    resultados.Add(new { trackId = trackId, error = "Respuesta no JSON", raw = jsonRespuesta });
+                }
+            }
+            catch (Exception ex)
+            {
+                resultados.Add(new { trackId = trackId, estado = "ERROR_APP", mensaje = ex.Message });
+            }
+        }
+
+        return Ok(new { 
+            mensaje = "Consulta finalizada", 
+            totalConsultados = trackIds.Count, 
+            detalles = resultados 
+        });
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { error = "Error general en el proceso", detalle = ex.Message });
+    }
+}
+    }
+    
 
     // ==========================================
     // XML MODELS

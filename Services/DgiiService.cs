@@ -158,5 +158,36 @@ namespace SummaCore.Services
             }
             return xml;
         }
+        public async Task<string> ConsultarEstado(string trackId, string token)
+        {
+            try
+            {
+                _http.DefaultRequestHeaders.Clear();
+                _http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+                // La URL base ya es: .../api/Consultas/Estado
+                // Concatenamos el parámetro trackId
+                var url = $"{URL_CONSULTA}?trackId={trackId}";
+        
+                _logger?.LogInformation($"[CONSULTA] Consultando TrackId: {trackId}");
+
+                var response = await _http.GetAsync(url);
+                var responseString = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                    {
+                        _logger?.LogWarning($"Error consultando {trackId}: {response.StatusCode}");
+                    }
+
+            return responseString;
+            }
+            catch (Exception ex)
+                {
+                    _logger?.LogError(ex, $"Excepción consultando TrackId {trackId}");
+                    // Retornamos un JSON de error manual para no romper el bucle del controlador
+                    return $"{{\"trackId\": \"{trackId}\", \"estado\": \"ERROR_INTERNO\", \"mensaje\": \"{ex.Message}\"}}";
+                }
+        }
     }
+
 }
