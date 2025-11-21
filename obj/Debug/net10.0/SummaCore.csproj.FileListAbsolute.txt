@@ -1,6 +1,21 @@
 C:\Users\roger\SummaCore\bin\Debug\net10.0\appsettings.Development.json
 C:\Users\roger\SummaCore\bin\Debug\net10.0\appsettings.json
 C:\Users\roger\SummaCore\bin\Debug\net10.0\SummaCore.staticwebassets.endpoints.json
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\ACECF v.1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\ANECF v.1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\ARECF v1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\e-CF 31 v.1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\e-CF 32 v.1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\e-CF 33 v.1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\e-CF 34 v.1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\e-CF 41 v.1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\e-CF 43 v.1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\e-CF 44 v.1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\e-CF 45 v.1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\e-CF 46 v.1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\e-CF 47 v.1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\RFCE 32 v.1.0.xsd
+C:\Users\roger\SummaCore\bin\Debug\net10.0\Models\XSDs\Semilla v.1.0.xsd
 C:\Users\roger\SummaCore\bin\Debug\net10.0\SummaCore.exe
 C:\Users\roger\SummaCore\bin\Debug\net10.0\13049552_identity.p12
 C:\Users\roger\SummaCore\bin\Debug\net10.0\SummaCore.deps.json
