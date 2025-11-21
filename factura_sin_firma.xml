@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ECF xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Encabezado>
+    <IdDoc>
+      <TipoeCF>31</TipoeCF>
+      <eNCF>E310000000001</eNCF>
+      <FechaVencimientoSecuencia>31-12-2025</FechaVencimientoSecuencia>
+      <IndicadorMontoGravado>0</IndicadorMontoGravado>
+      <TipoIngresos>1</TipoIngresos>
+    </IdDoc>
+    <Emisor>
+      <RNCEmisor>131487272</RNCEmisor>
+      <RazonSocialEmisor>TU EMPRESA S.R.L.</RazonSocialEmisor>
+      <FechaEmision>21-11-2025</FechaEmision>
+    </Emisor>
+    <Comprador>
+      <RNCComprador>101796361</RNCComprador>
+      <RazonSocialComprador>CLIENTE DE PRUEBA</RazonSocialComprador>
+    </Comprador>
+    <Totales>
+      <MontoTotal>1500.00</MontoTotal>
+    </Totales>
+  </Encabezado>
+</ECF>

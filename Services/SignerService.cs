@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Xml;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -9,61 +10,73 @@ namespace SummaCore.Services
     public class SignerService
     {
         public string FirmarECF(string xmlSinFirma, X509Certificate2 certificado)
+{
+    var doc = new XmlDocument();
+    doc.PreserveWhitespace = false; // Importante: Mantiene la limpieza igual que TS
+    
+    var settings = new XmlReaderSettings { IgnoreComments = true };
+    using (var reader = XmlReader.Create(new StringReader(xmlSinFirma), settings))
+    {
+        doc.Load(reader);
+    }
+
+    // --- Lógica de Firma (Igual que antes) ---
+    var signedXml = new SignedXml(doc)
+    {
+        SigningKey = certificado.GetRSAPrivateKey()
+    };
+
+    signedXml.SignedInfo.CanonicalizationMethod = SignedXml.XmlDsigC14NTransformUrl;
+    signedXml.SignedInfo.SignatureMethod = SignedXml.XmlDsigRSASHA256Url;
+
+    var reference = new Reference("");
+    reference.DigestMethod = SignedXml.XmlDsigSHA256Url;
+    reference.AddTransform(new XmlDsigEnvelopedSignatureTransform());
+    reference.AddTransform(new XmlDsigC14NTransform());
+    
+    signedXml.AddReference(reference);
+
+    var keyInfo = new KeyInfo();
+    var keyInfoData = new KeyInfoX509Data(certificado);
+    keyInfoData.AddCertificate(certificado);
+    keyInfo.AddClause(keyInfoData);
+    signedXml.KeyInfo = keyInfo;
+
+    signedXml.ComputeSignature();
+    var xmlSignature = signedXml.GetXml();
+    
+    if (doc.DocumentElement != null)
+    {
+        doc.DocumentElement.AppendChild(doc.ImportNode(xmlSignature, true));
+        
+        // =========================================================
+        // CORRECCIÓN FINAL: CONDICIONAL PARA SEMILLA VS ECF
+        // =========================================================
+        
+        // Caso 1: Si es SEMILLA, NO queremos declaración XML (rompe la validación DGII)
+        if (doc.DocumentElement.Name == "SemillaModel")
         {
-            var doc = new XmlDocument();
-            // CRÍTICO: PreserveWhitespace debe ser true
-            doc.PreserveWhitespace = true; 
-            doc.LoadXml(xmlSinFirma);
-
-            var signedXml = new SignedXml(doc)
+            if (doc.FirstChild is XmlDeclaration)
             {
-                SigningKey = certificado.GetRSAPrivateKey()
-            };
-
-            // *** FIX 1: Usar C14N ESTÁNDAR (no exclusivo) ***
-            // La DGII requiere: http://www.w3.org/TR/2001/REC-xml-c14n-20010315
-            signedXml.SignedInfo.CanonicalizationMethod = SignedXml.XmlDsigC14NTransformUrl;
-            
-            // *** FIX 2: Especificar RSA-SHA256 explícitamente ***
-            signedXml.SignedInfo.SignatureMethod = SignedXml.XmlDsigRSASHA256Url;
-
-            // *** FIX 3: Crear Reference con URI vacío (firma todo el documento) ***
-            var reference = new Reference("");
-            
-            // DigestMethod SHA256 explícito
-            reference.DigestMethod = SignedXml.XmlDsigSHA256Url;
-            
-            // Transform 1: Enveloped signature
-            reference.AddTransform(new XmlDsigEnvelopedSignatureTransform());
-            
-            // Transform 2: C14N estándar (igual que SignedInfo)
-            reference.AddTransform(new XmlDsigC14NTransform());
-            
-            signedXml.AddReference(reference);
-
-            // *** FIX 4: KeyInfo completo con X509Data ***
-            var keyInfo = new KeyInfo();
-            var keyInfoData = new KeyInfoX509Data(certificado);
-            
-            // Incluir SOLO el certificado
-            keyInfoData.AddCertificate(certificado);
-            
-            keyInfo.AddClause(keyInfoData);
-            signedXml.KeyInfo = keyInfo;
-
-            // *** FIX 5: Calcular firma ***
-            signedXml.ComputeSignature();
-
-            // *** FIX 6: Insertar firma en el documento ***
-            var xmlSignature = signedXml.GetXml();
-            
-            if (doc.DocumentElement != null)
-            {
-                doc.DocumentElement.AppendChild(doc.ImportNode(xmlSignature, true));
+                doc.RemoveChild(doc.FirstChild);
             }
-
-            // *** FIX 7: Retornar SIN declaración XML ***
-            return doc.DocumentElement?.OuterXml ?? doc.OuterXml;
         }
+        // Caso 2: Si es ECF (Factura), SÍ necesitamos UTF-8 forzado
+        else 
+        {
+            if (doc.FirstChild is XmlDeclaration dec)
+            {
+                dec.Encoding = "UTF-8";
+            }
+            else
+            {
+                var xmlDeclaration = doc.CreateXmlDeclaration("1.0", "UTF-8", null);
+                doc.InsertBefore(xmlDeclaration, doc.DocumentElement);
+            }
+        }
+    }
+
+    return doc.OuterXml;
+}
     }
 }

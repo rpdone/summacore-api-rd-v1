@@ -7,7 +7,7 @@ using System.Xml;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using System.Net.Http;
-
+using System.Net.Http.Headers;
 
 namespace SummaCore.Services
 {
@@ -16,97 +16,86 @@ namespace SummaCore.Services
         private readonly HttpClient _http;
         private readonly SignerService _signer;
         private readonly ILogger<DgiiService>? _logger;
-        
-        // URLs AMBIENTE DE CERTIFICACIÓN (CerteCF)
-        private const string URL_SEMILLA = "https://ecf.dgii.gov.do/CerteCF/Autenticacion/api/Autenticacion/Semilla";
-        private const string URL_TOKEN = "https://ecf.dgii.gov.do/CerteCF/Autenticacion/api/Autenticacion/ValidarSemilla";
-        private const string URL_RECEPCION = "https://ecf.dgii.gov.do/CerteCF/Recepcion/api/eCF";
+        // =========================================================================
+    // RUTAS OFICIALES - AMBIENTE CERTIFICACIÓN (CerteCF) - SEGÚN PDF
+    // =========================================================================
+    
+    // 1. Autenticación (Semilla)
+    // Base PDF: https://eCF.dgii.gov.do/CerteCF/Autenticacion
+    private const string URL_SEMILLA = "https://ecf.dgii.gov.do/CerteCF/Autenticacion/api/Autenticacion/Semilla";
+    
+    // 2. Validación Semilla (Token)
+    private const string URL_TOKEN = "https://ecf.dgii.gov.do/CerteCF/Autenticacion/api/Autenticacion/ValidarSemilla";
+    
+    // 3. Recepción de Facturas (CORREGIDO)
+    // Base PDF: https://eCF.dgii.gov.do/CerteCF/Recepcion
+    // Endpoint: /api/FacturasElectronicas
+    private const string URL_RECEPCION = "https://ecf.dgii.gov.do/CerteCF/Recepcion/api/FacturasElectronicas";
+
+    // 4. Consulta de Estado (TrackId) - Para cuando recibas el TrackId
+    // Base PDF: https://eCF.dgii.gov.do/CerteCF/ConsultaResultado
+    private const string URL_CONSULTA = "https://ecf.dgii.gov.do/CerteCF/ConsultaResultado/api/Consultas/Estado";
 
         public DgiiService(SignerService signer, ILogger<DgiiService>? logger = null)
         {
-            _http = new HttpClient();
+            var handler = new HttpClientHandler
+            {
+                UseDefaultCredentials = false,
+                PreAuthenticate = false
+            };
+            _http = new HttpClient(handler);
             _signer = signer;
             _logger = logger;
-            
-            // Agregar headers por defecto
             _http.DefaultRequestHeaders.Add("Accept", "application/xml");
         }
 
-        public async Task<string> Autenticar(X509Certificate2 certificado)
+       public async Task<string> Autenticar(X509Certificate2 certificado)
         {
             try
             {
-                // *** PASO 1: OBTENER SEMILLA ***
+                // [1] Obtener Semilla (Igual que antes)
                 _logger?.LogInformation("[1] Obteniendo semilla...");
                 var semillaResponse = await _http.GetAsync(URL_SEMILLA);
+                semillaResponse.EnsureSuccessStatusCode();
                 
-                if (!semillaResponse.IsSuccessStatusCode)
-                {
-                    throw new Exception($"Error obteniendo semilla: {semillaResponse.StatusCode}");
-                }
-                
-                // Leer como bytes para evitar problemas de encoding
-                var semillaBytes = await semillaResponse.Content.ReadAsByteArrayAsync();
-                string semillaXml = Encoding.UTF8.GetString(semillaBytes);
-                
-                _logger?.LogInformation("Semilla recibida (primeros 200 chars): {SemillaPreview}", 
-                    semillaXml.Substring(0, Math.Min(200, semillaXml.Length)));
+                string semillaXml = Encoding.UTF8.GetString(await semillaResponse.Content.ReadAsByteArrayAsync());
+                semillaXml = LimpiarXML(semillaXml); // Tu método LimpiarXML existente está bien
 
-                // *** LIMPIEZA: Eliminar BOM y declaración XML ***
-                semillaXml = LimpiarXML(semillaXml);
-                
-                _logger?.LogInformation("Semilla limpia (primeros 200 chars): {SemillaLimpiaPreview}", 
-                    semillaXml.Substring(0, Math.Min(200, semillaXml.Length)));
-
-                // *** PASO 2: FIRMAR SEMILLA ***
+                // [2] Firmar Semilla (Usando el nuevo SignerService que limpia el XML)
                 _logger?.LogInformation("[2] Firmando semilla...");
                 var semillaFirmada = _signer.FirmarECF(semillaXml, certificado);
-                
-                // Guardar para debug
-                await File.WriteAllTextAsync("semilla_firmada_debug.xml", semillaFirmada);
-                _logger?.LogInformation("Semilla firmada guardada en: semilla_firmada_debug.xml");
 
-                // *** PASO 3: VALIDAR ESTRUCTURA ANTES DE ENVIAR ***
-                ValidarXMLFirmado(semillaFirmada);
-
-                // *** PASO 4: ENVIAR A VALIDAR (Obtener Token) ***
+                // [3] Validar Semilla (CAMBIO IMPORTANTE: Usar MultipartFormData)
                 _logger?.LogInformation("[3] Enviando semilla firmada para validación...");
-                
-                // CRÍTICO: Content-Type debe ser "application/xml" sin charset
-                var content = new StringContent(semillaFirmada, Encoding.UTF8, "application/xml");
-                
-                // Forzar que NO se agregue charset automáticamente
-                content.Headers.ContentType!.CharSet = null;
-                
+
+                using var content = new MultipartFormDataContent();
+                // TypeScript usa el nombre "xml" para el campo y un nombre de archivo dummy como "signed.xml"
+                var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes(semillaFirmada));
+                fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/xml");
+                content.Add(fileContent, "xml", "semilla_firmada.xml");
+
                 var tokenResponse = await _http.PostAsync(URL_TOKEN, content);
                 
-                // Leer respuesta
-                var responseBytes = await tokenResponse.Content.ReadAsByteArrayAsync();
-                var responseString = Encoding.UTF8.GetString(responseBytes);
+                var responseString = await tokenResponse.Content.ReadAsStringAsync();
                 
-                _logger?.LogInformation("Respuesta código: {StatusCode}", tokenResponse.StatusCode);
-                _logger?.LogInformation("Respuesta body: {ResponseBody}", responseString);
-
                 if (!tokenResponse.IsSuccessStatusCode) 
                 {
                     throw new Exception($"Error DGII ({tokenResponse.StatusCode}): {responseString}");
                 }
 
-                // *** PASO 5: EXTRAER TOKEN ***
+                // [4] Extraer Token (Tu método existente funciona)
                 string tokenLimpio = ExtraerToken(responseString);
-                _logger?.LogInformation("Token obtenido (primeros 50 chars): {TokenPreview}...", 
-                    tokenLimpio.Substring(0, Math.Min(50, tokenLimpio.Length)));
-                
                 return tokenLimpio;
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "ERROR en Autenticar: {ErrorMessage}", ex.Message);
+                _logger?.LogError(ex, "ERROR en Autenticar");
                 throw;
             }
         }
 
-        public async Task<string> EnviarFactura(string xmlFirmado, string token)
+        // Agrega el parámetro 'nombreArchivo' para cumplir con el estándar (RNC+e-NCF.xml)
+        public async Task<string> EnviarFactura(string xmlFirmado, string token, string nombreArchivo = "factura.xml")
         {
             try
             {
@@ -114,147 +103,60 @@ namespace SummaCore.Services
                 
                 _http.DefaultRequestHeaders.Clear();
                 _http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
-                _http.DefaultRequestHeaders.Add("Accept", "application/xml");
+                // TypeScript no fuerza Accept header aquí, pero dejarlo no debería dañar.
+                
+                // CAMBIO IMPORTANTE: Usar MultipartFormData
+                using var content = new MultipartFormDataContent();
+                
+                // Convertir string a bytes para evitar problemas de encoding al crear el contenido
+                var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes(xmlFirmado));
+                fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/xml");
+                
+                // TypeScript: formData.append('xml', stream, options);
+                // El nombre del campo DEBE ser "xml"
+                content.Add(fileContent, "xml", nombreArchivo);
 
-                var content = new StringContent(xmlFirmado, Encoding.UTF8, "application/xml");
-                content.Headers.ContentType!.CharSet = null;
-                
                 var response = await _http.PostAsync(URL_RECEPCION, content);
-                
-                var responseBytes = await response.Content.ReadAsByteArrayAsync();
-                var responseString = Encoding.UTF8.GetString(responseBytes);
+                var responseString = await response.Content.ReadAsStringAsync();
                 
                 _logger?.LogInformation("Respuesta envío: {StatusCode}", response.StatusCode);
                 _logger?.LogInformation("Body: {ResponseBody}", responseString);
+                if (!response.IsSuccessStatusCode)
+                  {
+                     // Esto hará que el error salga en el JSON de respuesta de tu controlador
+                    throw new Exception($"Error DGII al enviar factura ({response.StatusCode}): {responseString}");
+                }
 
                 return responseString;
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "ERROR en EnviarFactura: {ErrorMessage}", ex.Message);
+                _logger?.LogError(ex, "ERROR en EnviarFactura");
                 throw;
             }
         }
 
-        // *** MÉTODOS AUXILIARES ***
-        
         private string LimpiarXML(string xml)
         {
-            // 1. Eliminar BOM (Byte Order Mark) invisible
-            if (xml.StartsWith("\uFEFF")) 
-                xml = xml.Substring(1);
+            if (string.IsNullOrWhiteSpace(xml)) return "";
+            string clean = xml.StartsWith("\uFEFF") ? xml.Substring(1) : xml;
             
-            // 2. Eliminar \r\n al inicio si existe
-            xml = xml.TrimStart('\r', '\n', ' ', '\t');
+            int index = clean.IndexOf("<SemillaModel");
+            if (index == -1) index = clean.IndexOf("<");
+            if (index == -1) throw new Exception("XML inválido");
             
-            // 3. Buscar directamente el inicio de <SemillaModel
-            int indexSemilla = xml.IndexOf("<SemillaModel");
-            if (indexSemilla > 0)
+            return clean.Substring(index);
+        }
+
+        private string ExtraerToken(string xml)
+        {
+            if (xml.Contains("<token>"))
             {
-                // Hay contenido antes de <SemillaModel> (probablemente <?xml...?>)
-                xml = xml.Substring(indexSemilla);
+                int start = xml.IndexOf("<token>") + 7;
+                int end = xml.IndexOf("</token>");
+                if (end > start) return xml.Substring(start, end - start);
             }
-            else if (indexSemilla < 0)
-            {
-                // No encontró <SemillaModel>, intentar limpiar declaración XML genéricamente
-                if (xml.StartsWith("<?xml"))
-                {
-                    int endDeclaration = xml.IndexOf("?>");
-                    if (endDeclaration > 0)
-                    {
-                        xml = xml.Substring(endDeclaration + 2);
-                    }
-                }
-            }
-            
-            // 4. Limpiar espacios/saltos de línea al inicio y final
-            xml = xml.Trim();
-            
             return xml;
-        }
-
-        private void ValidarXMLFirmado(string xml)
-        {
-            try
-            {
-                var doc = new XmlDocument();
-                doc.LoadXml(xml);
-                
-                // Verificar que existe el nodo Signature
-                var ns = new XmlNamespaceManager(doc.NameTable);
-                ns.AddNamespace("ds", "http://www.w3.org/2000/09/xmldsig#");
-                
-                var signatureNode = doc.SelectSingleNode("//ds:Signature", ns);
-                if (signatureNode == null)
-                {
-                    throw new Exception("XML firmado no contiene nodo <Signature>");
-                }
-                
-                // Verificar CanonicalizationMethod
-                var canonNode = doc.SelectSingleNode("//ds:CanonicalizationMethod", ns);
-                if (canonNode != null)
-                {
-                    var algorithm = canonNode.Attributes?["Algorithm"]?.Value;
-                    _logger?.LogInformation("Canonicalización detectada: {Algorithm}", algorithm);
-                    
-                    // Debe ser C14N estándar
-                    if (algorithm != "http://www.w3.org/TR/2001/REC-xml-c14n-20010315")
-                    {
-                        _logger?.LogWarning("⚠️ ADVERTENCIA: Algoritmo de canonicalización inesperado: {Algorithm}", algorithm);
-                    }
-                }
-                
-                // Verificar SignatureMethod
-                var sigMethodNode = doc.SelectSingleNode("//ds:SignatureMethod", ns);
-                if (sigMethodNode != null)
-                {
-                    var algorithm = sigMethodNode.Attributes?["Algorithm"]?.Value;
-                    _logger?.LogInformation("Método de firma detectado: {Algorithm}", algorithm);
-                }
-                
-                _logger?.LogInformation("✓ Validación de estructura XML firmado: OK");
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Error validando XML firmado: {ex.Message}");
-            }
-        }
-
-        private string ExtraerToken(string xmlResponse)
-        {
-            try
-            {
-                // El responseString es XML de DGII formato:
-                // <AutenticacionModel><token>...</token>...</AutenticacionModel>
-                
-                var doc = new XmlDocument();
-                doc.LoadXml(xmlResponse);
-                
-                // Buscar nodo token (puede o no tener namespace)
-                var tokenNode = doc.SelectSingleNode("//token");
-                if (tokenNode != null)
-                {
-                    return tokenNode.InnerText;
-                }
-                
-                // Fallback: buscar manualmente
-                if (xmlResponse.Contains("<token>"))
-                {
-                    int start = xmlResponse.IndexOf("<token>") + 7;
-                    int end = xmlResponse.IndexOf("</token>");
-                    if (end > start)
-                    {
-                        return xmlResponse.Substring(start, end - start);
-                    }
-                }
-                
-                throw new Exception("No se pudo extraer el token del XML de respuesta");
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "ERROR extrayendo token. XML recibido: {XmlResponse}", xmlResponse);
-                throw;
-            }
         }
     }
 }
