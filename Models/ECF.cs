@@ -8,37 +8,23 @@ namespace SummaCore.Models
     [XmlRoot("ECF")]
     public class ECF
     {
-        [XmlElement(Order = 1)]
-        public Encabezado Encabezado { get; set; } = new Encabezado();
+        [XmlElement(Order = 1)] public Encabezado Encabezado { get; set; } = new Encabezado();
+        [XmlElement("DetallesItems", Order = 2)] public DetallesItems DetallesItems { get; set; } = new DetallesItems();
+        [XmlElement(Order = 3)] public Subtotales Subtotales { get; set; } = new Subtotales();
+        [XmlElement(Order = 4)] public DescuentosORecargos DescuentosORecargos { get; set; }
+        [XmlElement(Order = 5)] public Paginacion Paginacion { get; set; }
+        [XmlElement(Order = 6)] public InformacionReferencia InformacionReferencia { get; set; }
+        [XmlElement(Order = 7)] public List<TablaAdicional> TablaAdicional { get; set; }
+        [XmlElement(Order = 8)] public string FechaHoraFirma { get; set; }
+        [XmlElement(Order = 99)] public Signature Signature { get; set; }
 
-        [XmlElement("DetallesItems", Order = 2)]
-        public DetallesItems DetallesItems { get; set; } = new DetallesItems();
-
-        [XmlElement(Order = 3)]
-        public Subtotales Subtotales { get; set; } = new Subtotales();
-
-        [XmlElement(Order = 4)]
-        public DescuentosORecargos DescuentosORecargos { get; set; }
-
-        [XmlElement(Order = 5)]
-        public Paginacion Paginacion { get; set; }
-
-        [XmlElement(Order = 6)]
-        public InformacionReferencia InformacionReferencia { get; set; }
-
-        [XmlElement(Order = 7)]
-        public List<TablaAdicional> TablaAdicional { get; set; }
-
-        [XmlElement(Order = 99)]
-        public Signature Signature { get; set; }
-
-        // Lógica Condicional
-        public bool ShouldSerializeDetallesItems() => DetallesItems != null && DetallesItems.Item != null && DetallesItems.Item.Any();
-        public bool ShouldSerializeSubtotales() => Subtotales != null && Subtotales.Subtotal != null && Subtotales.Subtotal.Any();
-        public bool ShouldSerializeDescuentosORecargos() => DescuentosORecargos != null && DescuentosORecargos.DescuentoORecargo != null && DescuentosORecargos.DescuentoORecargo.Any();
-        public bool ShouldSerializePaginacion() => Paginacion != null && Paginacion.Pagina != null && Paginacion.Pagina.Any();
+        public bool ShouldSerializeDetallesItems() => DetallesItems?.Item != null && DetallesItems.Item.Any();
+        public bool ShouldSerializeSubtotales() => Subtotales?.Subtotal != null && Subtotales.Subtotal.Any();
+        public bool ShouldSerializeDescuentosORecargos() => DescuentosORecargos?.DescuentoORecargo != null && DescuentosORecargos.DescuentoORecargo.Any();
+        public bool ShouldSerializePaginacion() => Paginacion?.Pagina != null && Paginacion.Pagina.Any();
         public bool ShouldSerializeInformacionReferencia() => InformacionReferencia != null && !string.IsNullOrEmpty(InformacionReferencia.NCFModificado);
         public bool ShouldSerializeTablaAdicional() => TablaAdicional != null && TablaAdicional.Any();
+        public bool ShouldSerializeFechaHoraFirma() => !string.IsNullOrEmpty(FechaHoraFirma);
     }
 
     public class Encabezado
@@ -76,11 +62,7 @@ namespace SummaCore.Models
         public string TipoIngresosRaw
         {
             get => _tipoIngresos;
-            set
-            {
-                if (value == "#e" || string.IsNullOrEmpty(value)) _tipoIngresos = null;
-                else _tipoIngresos = value.PadLeft(2, '0');
-            }
+            set => _tipoIngresos = (value == "#e" || value == "0" || string.IsNullOrEmpty(value)) ? null : value.PadLeft(2, '0');
         }
 
         [XmlElement("TipoIngresos", Order = 8)]
@@ -106,11 +88,17 @@ namespace SummaCore.Models
         [XmlElement(Order = 18)] public int? TotalPaginas { get; set; }
 
         public bool ShouldSerializeFechaVencimientoSecuencia() => !string.IsNullOrEmpty(FechaVencimientoSecuencia) && FechaVencimientoSecuencia != "#e" && TipoeCF != 32;
-        public bool ShouldSerializeIndicadorNotaCredito() => TipoeCF == 34 && IndicadorNotaCredito.HasValue;
+        public bool ShouldSerializeIndicadorNotaCredito() => IndicadorNotaCredito.HasValue && TipoeCF == 34;
         public bool ShouldSerializeIndicadorEnvioDiferido() => IndicadorEnvioDiferido.HasValue && IndicadorEnvioDiferido == 1;
-        public bool ShouldSerializeIndicadorMontoGravado() => IndicadorMontoGravado.HasValue;
+        
+        public bool ShouldSerializeIndicadorMontoGravado() 
+        {
+            if (TipoeCF == 46 || TipoeCF == 47) return false;
+            return IndicadorMontoGravado.HasValue;
+        }
+
         public bool ShouldSerializeIndicadorServicioTodoIncluido() => IndicadorServicioTodoIncluido.HasValue && IndicadorServicioTodoIncluido == 1;
-        public bool ShouldSerializeTipoIngresos() => !string.IsNullOrEmpty(_tipoIngresos) && _tipoIngresos != "#e";
+        public bool ShouldSerializeTipoIngresos() => !string.IsNullOrEmpty(_tipoIngresos);
         public bool ShouldSerializeTipoPago() => TipoPago.HasValue && TipoPago > 0;
         public bool ShouldSerializeFechaLimitePago() => !string.IsNullOrEmpty(FechaLimitePago) && FechaLimitePago != "#e";
         public bool ShouldSerializeTerminoPago() => !string.IsNullOrEmpty(TerminoPago) && TerminoPago != "#e";
@@ -118,7 +106,9 @@ namespace SummaCore.Models
         public bool ShouldSerializeTipoCuentaPago() => !string.IsNullOrEmpty(TipoCuentaPago) && TipoCuentaPago != "#e";
         public bool ShouldSerializeNumeroCuentaPago() => !string.IsNullOrEmpty(NumeroCuentaPago) && NumeroCuentaPago != "#e";
         public bool ShouldSerializeBancoPago() => !string.IsNullOrEmpty(BancoPago) && BancoPago != "#e";
-        public bool ShouldSerializeTotalPaginas() => TotalPaginas.HasValue && TotalPaginas > 1;
+        public bool ShouldSerializeTotalPaginas() => TotalPaginas.HasValue;
+        public bool ShouldSerializeFechaDesde() => !string.IsNullOrEmpty(FechaDesde);
+        public bool ShouldSerializeFechaHasta() => !string.IsNullOrEmpty(FechaHasta);
     }
 
     public class FormaPagoItem {
@@ -179,54 +169,6 @@ namespace SummaCore.Models
         public bool ShouldSerializeFechaEntrega() => !string.IsNullOrEmpty(FechaEntrega) && FechaEntrega != "#e";
     }
 
-    public class InformacionesAdicionales {
-        [XmlElement(Order = 1)] public string FechaEmbarque { get; set; }
-        [XmlElement(Order = 2)] public string NumeroEmbarque { get; set; }
-        [XmlElement(Order = 3)] public string NumeroContenedor { get; set; }
-        [XmlElement(Order = 4)] public string NumeroReferencia { get; set; }
-        [XmlElement(Order = 5)] public string NombrePuertoEmbarque { get; set; }
-        [XmlElement(Order = 6)] public string CondicionesEntrega { get; set; }
-        [XmlElement(Order = 7)] public decimal? TotalFob { get; set; }
-        [XmlElement(Order = 8)] public decimal? Seguro { get; set; }
-        [XmlElement(Order = 9)] public decimal? Flete { get; set; }
-        [XmlElement(Order = 10)] public decimal? OtrosGastos { get; set; }
-        [XmlElement(Order = 11)] public decimal? TotalCif { get; set; }
-        [XmlElement(Order = 12)] public string RegimenAduanero { get; set; }
-        [XmlElement(Order = 13)] public string NombrePuertoSalida { get; set; }
-        [XmlElement(Order = 14)] public string NombrePuertoDesembarque { get; set; }
-        [XmlElement(Order = 15)] public decimal? PesoBruto { get; set; }
-        [XmlElement(Order = 16)] public decimal? PesoNeto { get; set; }
-        [XmlElement(Order = 17)] public string UnidadPesoBruto { get; set; }
-        [XmlElement(Order = 18)] public string UnidadPesoNeto { get; set; }
-        [XmlElement(Order = 19)] public decimal? CantidadBulto { get; set; }
-        [XmlElement(Order = 20)] public string UnidadBulto { get; set; }
-        [XmlElement(Order = 21)] public decimal? VolumenBulto { get; set; }
-        [XmlElement(Order = 22)] public string UnidadVolumen { get; set; }
-
-        public bool ShouldSerializeFechaEmbarque() => !string.IsNullOrEmpty(FechaEmbarque) && FechaEmbarque != "#e";
-        public bool ShouldSerializeTotalFob() => TotalFob.HasValue;
-    }
-
-    public class Transporte {
-        [XmlElement(Order = 1)] public string ViaTransporte { get; set; }
-        [XmlElement(Order = 2)] public string PaisOrigen { get; set; }
-        [XmlElement(Order = 3)] public string DireccionDestino { get; set; }
-        [XmlElement(Order = 4)] public string PaisDestino { get; set; }
-        [XmlElement(Order = 5)] public string RNCIdentificacionCompaniaTransportista { get; set; }
-        [XmlElement(Order = 6)] public string NombreCompaniaTransportista { get; set; }
-        [XmlElement(Order = 7)] public string NumeroViaje { get; set; }
-        [XmlElement(Order = 8)] public string Conductor { get; set; }
-        [XmlElement(Order = 9)] public string DocumentoTransporte { get; set; }
-        [XmlElement(Order = 10)] public string Ficha { get; set; }
-        [XmlElement(Order = 11)] public string Placa { get; set; }
-        [XmlElement(Order = 12)] public string RutaTransporte { get; set; }
-        [XmlElement(Order = 13)] public string ZonaTransporte { get; set; }
-        [XmlElement(Order = 14)] public string NumeroAlbaran { get; set; }
-
-        public bool ShouldSerializePaisDestino() => !string.IsNullOrEmpty(PaisDestino) && PaisDestino != "#e";
-        public bool ShouldSerializeConductor() => !string.IsNullOrEmpty(Conductor) && Conductor != "#e";
-    }
-
     public class Totales
     {
         [XmlElement(Order = 1)] public decimal? MontoGravadoTotal { get; set; }
@@ -260,12 +202,29 @@ namespace SummaCore.Models
         public bool ShouldSerializeMontoGravadoTotal() => MontoGravadoTotal.HasValue && MontoGravadoTotal != 0;
         public bool ShouldSerializeMontoGravadoI1() => MontoGravadoI1.HasValue && MontoGravadoI1 != 0;
         public bool ShouldSerializeMontoGravadoI2() => MontoGravadoI2.HasValue && MontoGravadoI2 != 0;
+        public bool ShouldSerializeMontoGravadoI3() => MontoGravadoI3.HasValue && MontoGravadoI3 != 0;
         public bool ShouldSerializeMontoExento() => MontoExento.HasValue && MontoExento != 0;
+        public bool ShouldSerializeITBIS1() => ITBIS1.HasValue && ITBIS1 != 0;
+        public bool ShouldSerializeITBIS2() => ITBIS2.HasValue && ITBIS2 != 0;
+        public bool ShouldSerializeITBIS3() => ITBIS3.HasValue && ITBIS3 != 0;
         public bool ShouldSerializeTotalITBIS() => TotalITBIS.HasValue && TotalITBIS != 0;
+        public bool ShouldSerializeTotalITBIS1() => TotalITBIS1.HasValue && TotalITBIS1 != 0;
+        public bool ShouldSerializeTotalITBIS2() => TotalITBIS2.HasValue && TotalITBIS2 != 0;
+        public bool ShouldSerializeTotalITBIS3() => TotalITBIS3.HasValue && TotalITBIS3 != 0;
+        public bool ShouldSerializeMontoImpuestoAdicional() => MontoImpuestoAdicional.HasValue && MontoImpuestoAdicional != 0;
+        public bool ShouldSerializeImpuestosAdicionales() => ImpuestosAdicionales != null && ImpuestosAdicionales.Any();
+        public bool ShouldSerializeMontoNoFacturable() => MontoNoFacturable.HasValue && MontoNoFacturable != 0;
+        public bool ShouldSerializeMontoPeriodo() => MontoPeriodo.HasValue && MontoPeriodo != 0;
+        public bool ShouldSerializeSaldoAnterior() => SaldoAnterior.HasValue && SaldoAnterior != 0;
+        public bool ShouldSerializeMontoAvancePago() => MontoAvancePago.HasValue && MontoAvancePago != 0;
+        public bool ShouldSerializeValorPagar() => ValorPagar.HasValue && ValorPagar != 0;
+        public bool ShouldSerializeMontoRetencionRenta() => MontoRetencionRenta.HasValue && MontoRetencionRenta != 0;
+        public bool ShouldSerializeMontoRetencionITBIS() => MontoRetencionITBIS.HasValue && MontoRetencionITBIS != 0;
         public bool ShouldSerializeTotalISRRetencion() => TotalISRRetencion.HasValue && TotalISRRetencion != 0;
     }
 
-    public class DetallesItems {
+    public class DetallesItems
+    {
         [XmlElement("Item")]
         public List<Item> Item { get; set; } = new List<Item>();
     }
@@ -284,11 +243,8 @@ namespace SummaCore.Models
         [XmlElement(Order = 5)] public RetencionItem Retencion { get; set; }
 
         [XmlElement(Order = 6)] public string NombreItem { get; set; }
-        
-        // CORRECCIÓN: IndicadorBienoServicio VA ANTES QUE DescripcionItem
-        [XmlElement(Order = 7)] public int? IndicadorBienoServicio { get; set; }
+        [XmlElement(Order = 7)] public int IndicadorBienoServicio { get; set; }
         [XmlElement(Order = 8)] public string DescripcionItem { get; set; }
-        
         [XmlElement(Order = 9)] public decimal? CantidadItem { get; set; }
         [XmlElement(Order = 10)] public string UnidadMedida { get; set; }
         [XmlElement(Order = 11)] public decimal? CantidadReferencia { get; set; }
@@ -306,16 +262,14 @@ namespace SummaCore.Models
         public bool ShouldSerializeRetencion() => Retencion != null;
         public bool ShouldSerializeMineria() => Mineria != null;
         public bool ShouldSerializeOtraMonedaDetalle() => OtraMonedaDetalle != null;
-        public bool ShouldSerializeCodigoItem() => !string.IsNullOrEmpty(CodigoItem) && (TablaCodigosItem == null || !TablaCodigosItem.Any());
+        public bool ShouldSerializeCodigoItem() => !string.IsNullOrEmpty(CodigoItem);
         public bool ShouldSerializeDescripcionItem() => !string.IsNullOrEmpty(DescripcionItem) && DescripcionItem != "#e";
+        public bool ShouldSerializeCantidadItem() => CantidadItem.HasValue;
+        public bool ShouldSerializeCantidadReferencia() => CantidadReferencia.HasValue && CantidadReferencia != 0;
+        public bool ShouldSerializeDescuentoMonto() => DescuentoMonto.HasValue && DescuentoMonto != 0;
+        public bool ShouldSerializeRecargoMonto() => RecargoMonto.HasValue && RecargoMonto != 0;
     }
 
-    public class CodigoItem { public string TipoCodigo { get; set; } public string CodigoItemValue { get; set; } }
-    public class RetencionItem { public int IndicadorAgenteRetencionoPercepcion { get; set; } public decimal MontoISRRetenido { get; set; } }
-    public class Mineria { public decimal? PesoNetoKilogramo { get; set; } public decimal? PesoNetoMineria { get; set; } public int? TipoAfiliacion { get; set; } public int? Liquidacion { get; set; } }
-    public class OtraMonedaDetalle { public decimal? PrecioOtraMoneda { get; set; } public decimal? DescuentoOtraMoneda { get; set; } public decimal? RecargoOtraMoneda { get; set; } public decimal? MontoItemOtraMoneda { get; set; } }
-
-    // CLASE SUBTOTALES CORREGIDA (LISTA)
     public class Subtotales
     {
         [XmlElement("Subtotal")]
@@ -331,21 +285,35 @@ namespace SummaCore.Models
         [XmlElement(Order = 5)] public decimal? SubTotalMontoGravadoI1 { get; set; }
         [XmlElement(Order = 6)] public decimal? SubTotalMontoGravadoI2 { get; set; }
         [XmlElement(Order = 7)] public decimal? SubTotalMontoGravadoI3 { get; set; }
-        [XmlElement(Order = 8)] public decimal? SubTotalExento { get; set; }
-        [XmlElement(Order = 9)] public decimal? SubTotaITBIS { get; set; }
-        [XmlElement(Order = 10)] public decimal? SubTotaITBIS1 { get; set; }
-        [XmlElement(Order = 11)] public decimal? SubTotaITBIS2 { get; set; }
-        [XmlElement(Order = 12)] public decimal? SubTotaITBIS3 { get; set; }
-        [XmlElement(Order = 13)] public decimal? SubTotalImpuestoAdicional { get; set; }
+        
+        // CORRECCIÓN VITAL: SubTotaITBIS sin 'l' según XSD
+        [XmlElement("SubTotaITBIS", Order = 8)] public decimal? SubTotalITBIS { get; set; }
+        [XmlElement("SubTotaITBIS1", Order = 9)] public decimal? SubTotalITBIS1 { get; set; }
+        [XmlElement("SubTotaITBIS2", Order = 10)] public decimal? SubTotalITBIS2 { get; set; }
+        [XmlElement("SubTotaITBIS3", Order = 11)] public decimal? SubTotalITBIS3 { get; set; }
+        
+        [XmlElement(Order = 12)] public decimal? SubTotalImpuestoAdicional { get; set; }
+        [XmlElement(Order = 13)] public decimal? SubTotalExento { get; set; }
         [XmlElement(Order = 14)] public decimal MontoSubTotal { get; set; }
         [XmlElement(Order = 15)] public int Lineas { get; set; }
 
-        public bool ShouldSerializeSubTotalITBIS() => SubTotaITBIS.HasValue && SubTotaITBIS != 0;
         public bool ShouldSerializeSubTotalMontoGravadoTotal() => SubTotalMontoGravadoTotal.HasValue && SubTotalMontoGravadoTotal != 0;
         public bool ShouldSerializeSubTotalMontoGravadoI1() => SubTotalMontoGravadoI1.HasValue && SubTotalMontoGravadoI1 != 0;
+        public bool ShouldSerializeSubTotalMontoGravadoI2() => SubTotalMontoGravadoI2.HasValue && SubTotalMontoGravadoI2 != 0;
+        public bool ShouldSerializeSubTotalMontoGravadoI3() => SubTotalMontoGravadoI3.HasValue && SubTotalMontoGravadoI3 != 0;
+        public bool ShouldSerializeSubTotalITBIS() => SubTotalITBIS.HasValue && SubTotalITBIS != 0;
+        public bool ShouldSerializeSubTotalITBIS1() => SubTotalITBIS1.HasValue && SubTotalITBIS1 != 0;
+        public bool ShouldSerializeSubTotalITBIS2() => SubTotalITBIS2.HasValue && SubTotalITBIS2 != 0;
+        public bool ShouldSerializeSubTotalITBIS3() => SubTotalITBIS3.HasValue && SubTotalITBIS3 != 0;
+        public bool ShouldSerializeSubTotalImpuestoAdicional() => SubTotalImpuestoAdicional.HasValue && SubTotalImpuestoAdicional != 0;
         public bool ShouldSerializeSubTotalExento() => SubTotalExento.HasValue && SubTotalExento != 0;
     }
 
+    public class InformacionesAdicionales { [XmlElement(Order=1)] public string FechaEmbarque { get; set; } public bool ShouldSerializeFechaEmbarque() => !string.IsNullOrEmpty(FechaEmbarque); [XmlElement(Order=7)] public decimal? TotalFob { get; set; } public bool ShouldSerializeTotalFob() => TotalFob.HasValue; }
+    public class CodigoItem { public string TipoCodigo { get; set; } public string CodigoItemValue { get; set; } }
+    public class RetencionItem { public int IndicadorAgenteRetencionoPercepcion { get; set; } [XmlIgnore] public decimal MontoISRRetenido { get; set; } [XmlElement("MontoISRRetenido")] public string MontoISRRetenidoString { get => MontoISRRetenido.ToString("F2"); set => MontoISRRetenido = decimal.Parse(value); } }
+    public class Mineria { public decimal? PesoNetoKilogramo { get; set; } public decimal? PesoNetoMineria { get; set; } public int? TipoAfiliacion { get; set; } public int? Liquidacion { get; set; } }
+    public class OtraMonedaDetalle { public decimal? PrecioOtraMoneda { get; set; } public decimal? DescuentoOtraMoneda { get; set; } public decimal? RecargoOtraMoneda { get; set; } public decimal? MontoItemOtraMoneda { get; set; } }
     public class DescuentosORecargos { [XmlElement("DescuentoORecargo")] public List<DescuentoORecargo> DescuentoORecargo { get; set; } }
     public class DescuentoORecargo { [XmlElement(Order = 1)] public int? NumeroLinea { get; set; } [XmlElement(Order = 2)] public string TipoDescuentoORecargo { get; set; } [XmlElement(Order = 3)] public string TipoAjuste { get; set; } [XmlElement(Order = 4)] public decimal? MontoDescuentoORecargo { get; set; } }
     public class Paginacion { [XmlElement("Pagina")] public List<Pagina> Pagina { get; set; } }
@@ -355,6 +323,7 @@ namespace SummaCore.Models
     public class ImpuestoAdicional { [XmlElement(Order = 1)] public string TipoImpuesto { get; set; } [XmlElement(Order = 2)] public decimal? MontoImpuestoSelectivoConsumoEspecifico { get; set; } [XmlElement(Order = 3)] public decimal? MontoImpuestoSelectivoConsumoAdvalorem { get; set; } [XmlElement(Order = 4)] public decimal? OtrosImpuestosAdicionales { get; set; } }
     public class VersionType { [XmlText] public string Value { get; set; } = "1.0"; }
     public class OtraMoneda { [XmlElement(Order = 1)] public string TipoMoneda { get; set; } [XmlElement(Order = 2)] public decimal TipoCambio { get; set; } [XmlElement(Order = 3)] public decimal? MontoGravadoTotalOtraMoneda { get; set; } [XmlElement(Order = 4)] public decimal? MontoTotalOtraMoneda { get; set; } }
+    public class Transporte { [XmlElement(Order=1)] public string ViaTransporte { get; set; } [XmlElement(Order=2)] public string PaisOrigen { get; set; } [XmlElement(Order=3)] public string DireccionDestino { get; set; } [XmlElement(Order=4)] public string PaisDestino { get; set; } [XmlElement(Order=5)] public string RNCIdentificacionCompaniaTransportista { get; set; } [XmlElement(Order=6)] public string NombreCompaniaTransportista { get; set; } [XmlElement(Order=7)] public string NumeroViaje { get; set; } [XmlElement(Order=8)] public string Conductor { get; set; } [XmlElement(Order=9)] public string DocumentoTransporte { get; set; } [XmlElement(Order=10)] public string Ficha { get; set; } [XmlElement(Order=11)] public string Placa { get; set; } [XmlElement(Order=12)] public string RutaTransporte { get; set; } [XmlElement(Order=13)] public string ZonaTransporte { get; set; } [XmlElement(Order=14)] public string NumeroAlbaran { get; set; } public bool ShouldSerializePaisDestino() => !string.IsNullOrEmpty(PaisDestino) && PaisDestino != "#e"; public bool ShouldSerializeConductor() => !string.IsNullOrEmpty(Conductor) && Conductor != "#e"; }
     
     public class Signature { [XmlAttribute] public string Id { get; set; } = "Signature"; public SignedInfo SignedInfo { get; set; } public string SignatureValue { get; set; } public KeyInfo KeyInfo { get; set; } }
     public class SignedInfo { public CanonicalizationMethod CanonicalizationMethod { get; set; } public SignatureMethod SignatureMethod { get; set; } public Reference Reference { get; set; } }

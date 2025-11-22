@@ -4,13 +4,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
-using System.Xml.Schema; // Necesario para validación XSD
-using System.Xml.Serialization; // Necesario para convertir ECF a XML
+using System.Xml.Schema;
+using System.Xml.Serialization;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using SummaCore.Models; // Asegúrate de tener este using para acceder a la clase ECF
+using SummaCore.Models;
+using System.Text.Json; // Necesario para leer la respuesta JSON
 
 namespace SummaCore.Services
 {
@@ -38,7 +39,8 @@ namespace SummaCore.Services
             _http = new HttpClient(handler);
             _signer = signer;
             _logger = logger;
-            _http.DefaultRequestHeaders.Add("Accept", "application/xml");
+            // Aunque DGII prefiere XML para facturas, el token suele venir en JSON actualmente
+            _http.DefaultRequestHeaders.Add("Accept", "application/json"); 
         }
 
         // =========================================================================
@@ -48,23 +50,15 @@ namespace SummaCore.Services
         {
             try
             {
-                // 1. Limpieza de datos (quitar #e, ceros innecesarios, etc.)
+                // 1. Limpieza de datos
                 LimpiarDatos(ecf);
 
                 // 2. Serializar Objeto ECF a XML String
                 string xmlContent = SerializarObjeto(ecf);
                 
                 // 3. VALIDACIÓN CRÍTICA CONTRA XSD
-                // Esto detiene el proceso SI el XML no cumple con el esquema de la DGII
                 int tipoEcf = ecf.Encabezado.IdDoc.TipoeCF;
                 string xsdFileName = $"e-CF {tipoEcf} v.1.0.xsd";
-                
-                // Caso especial: Si es RFCE (Resumen) usa otro nombre, ajusta según tu lógica
-                if (ecf.Encabezado.IdDoc.TipoeCF == 32 && ecf.Encabezado.Totales.MontoTotal < 250000 && ecf.Encabezado.IdDoc.TipoIngresos == null) 
-                {
-                     // Lógica para detectar si es RFCE si usas la misma clase, o asume nombre estándar
-                }
-
                 string xsdPath = Path.Combine(Directory.GetCurrentDirectory(), "Models", "XSDs", xsdFileName);
 
                 if (File.Exists(xsdPath))
@@ -108,8 +102,6 @@ namespace SummaCore.Services
 
         private void LimpiarDatos(ECF ecf)
         {
-            // Ejemplo de limpieza adicional si es necesaria antes de serializar
-            // La mayoría se maneja con ShouldSerialize en el Modelo, pero aquí puedes forzar reglas
             if (ecf.Encabezado.IdDoc.FechaVencimientoSecuencia == "#e") ecf.Encabezado.IdDoc.FechaVencimientoSecuencia = null;
         }
 
@@ -117,7 +109,7 @@ namespace SummaCore.Services
         {
             var serializer = new XmlSerializer(typeof(ECF));
             var namespaces = new XmlSerializerNamespaces();
-            namespaces.Add("", ""); // Elimina los namespaces por defecto xmlns:xsi...
+            namespaces.Add("", ""); 
 
             using (var stringWriter = new StringWriterUtf8())
             {
@@ -155,7 +147,6 @@ namespace SummaCore.Services
             }
         }
 
-        // Helper para forzar UTF-8 en la serialización
         public class StringWriterUtf8 : StringWriter
         {
             public override Encoding Encoding => Encoding.UTF8;
@@ -197,7 +188,7 @@ namespace SummaCore.Services
                     throw new Exception($"Error DGII ({tokenResponse.StatusCode}): {responseString}");
                 }
 
-                // [4] Extraer Token
+                // [4] Extraer Token (AHORA SOPORTA JSON)
                 string tokenLimpio = ExtraerToken(responseString);
                 return tokenLimpio;
             }
@@ -215,7 +206,8 @@ namespace SummaCore.Services
                 _logger?.LogInformation("[ENVÍO] Enviando factura...");
                 
                 _http.DefaultRequestHeaders.Clear();
-                _http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+                // Se asegura de limpiar cualquier comilla extra del token
+                _http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.Trim('"')}");
                 
                 using var content = new MultipartFormDataContent();
                 var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes(xmlFirmado));
@@ -228,11 +220,7 @@ namespace SummaCore.Services
                 
                 _logger?.LogInformation("Respuesta envío: {StatusCode}", response.StatusCode);
                 
-                if (!response.IsSuccessStatusCode)
-                {
-                    throw new Exception($"Error DGII al enviar factura ({response.StatusCode}): {responseString}");
-                }
-
+                // Retornamos la respuesta aunque sea error, para que el controlador vea el detalle
                 return responseString;
             }
             catch (Exception ex)
@@ -254,15 +242,35 @@ namespace SummaCore.Services
             return clean.Substring(index);
         }
 
-        private string ExtraerToken(string xml)
+        // MÉTODO CORREGIDO: Soporta JSON
+        private string ExtraerToken(string response)
         {
-            if (xml.Contains("<token>"))
+            try
             {
-                int start = xml.IndexOf("<token>") + 7;
-                int end = xml.IndexOf("</token>");
-                if (end > start) return xml.Substring(start, end - start);
+                // Intento 1: JSON (Formato actual DGII)
+                using (JsonDocument doc = JsonDocument.Parse(response))
+                {
+                    if (doc.RootElement.TryGetProperty("token", out JsonElement tokenElement))
+                    {
+                        return tokenElement.GetString();
+                    }
+                }
             }
-            return xml;
+            catch
+            {
+                // Fallo JSON, intentar XML antiguo
+            }
+
+            // Intento 2: XML
+            if (response.Contains("<token>"))
+            {
+                int start = response.IndexOf("<token>") + 7;
+                int end = response.IndexOf("</token>");
+                if (end > start) return response.Substring(start, end - start);
+            }
+            
+            // Si todo falla, devuelve la respuesta original (probablemente fallará el envío)
+            return response;
         }
 
         public async Task<string> ConsultarEstado(string trackId, string token)
