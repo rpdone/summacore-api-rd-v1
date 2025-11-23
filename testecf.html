@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Carga Masiva e-CF</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        input[type="text"],
+        input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="file"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input-wrapper input[type=file] {
+            cursor: pointer;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-card.success {
+            border-left-color: #48bb78;
+        }
+
+        .stat-card.error {
+            border-left-color: #f56565;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+
+        .report-table th {
+            background: #f7fafc;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #4a5568;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .report-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .report-table tr:hover {
+            background: #f7fafc;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge.success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .badge.error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .badge.warning {
+            background: #feebc8;
+            color: #744210;
+        }
+
+        .error-list {
+            color: #742a2a;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .error-list li {
+            margin-bottom: 3px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Test Carga Masiva e-CF</h1>
+            <p>Subir archivo Excel para procesamiento de comprobantes fiscales</p>
+        </div>
+
+        <div class="content">
+            <div class="upload-section">
+                <form id="uploadForm">
+                    <div class="form-group">
+                        <label for="apiUrl">URL del API</label>
+                        <input 
+                            type="text" 
+                            id="apiUrl" 
+                            value="https://localhost:5001/api/CargaMasiva/procesar-excel"
+                            placeholder="https://localhost:5001/api/CargaMasiva/procesar-excel"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="fileInput">Archivo Excel (.xlsx)</label>
+                        <div class="file-input-wrapper">
+                            <input 
+                                type="file" 
+                                id="fileInput" 
+                                accept=".xlsx,.xls"
+                                required
+                            >
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn" id="submitBtn">
+                        📤 Subir y Procesar
+                    </button>
+                </form>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Procesando archivo... Por favor espere.</p>
+                </div>
+            </div>
+
+            <div class="results" id="results">
+                <h2>📊 Resultados del Procesamiento</h2>
+                
+                <div class="summary" id="summary"></div>
+
+                <h3>Detalle por Fila</h3>
+                <div style="overflow-x: auto;">
+                    <table class="report-table" id="reportTable">
+                        <thead>
+                            <tr>
+                                <th>Fila</th>
+                                <th>e-NCF</th>
+                                <th>Tipo</th>
+                                <th>Estado</th>
+                                <th>Detalles</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const submitBtn = document.getElementById('submitBtn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            const apiUrl = document.getElementById('apiUrl').value;
+            
+            if (!fileInput.files[0]) {
+                alert('Por favor seleccione un archivo');
+                return;
+            }
+
+            // Show loading
+            loading.style.display = 'block';
+            results.style.display = 'none';
+            submitBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('archivoExcel', fileInput.files[0]);
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayResults(data);
+                } else {
+                    displayError(data.error || 'Error desconocido');
+                }
+            } catch (error) {
+                displayError('Error de conexión: ' + error.message);
+            } finally {
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        });
+
+        function displayResults(data) {
+            // Show results section
+            results.style.display = 'block';
+
+            // Create summary
+            const summary = document.getElementById('summary');
+            summary.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">Total Procesados</div>
+                    <div class="stat-value">${data.total}</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-label">Exitosos</div>
+                    <div class="stat-value">${data.exitosos}</div>
+                </div>
+                <div class="stat-card error">
+                    <div class="stat-label">Fallidos</div>
+                    <div class="stat-value">${data.fallidos}</div>
+                </div>
+            `;
+
+            // Create report table
+            const tbody = document.getElementById('reportBody');
+            tbody.innerHTML = '';
+
+            data.reporte.forEach(item => {
+                const row = document.createElement('tr');
+                
+                let estadoBadge = '';
+                let detalles = item.respuesta || '';
+                
+                switch(item.estado) {
+                    case 'ENVIADO':
+                        estadoBadge = '<span class="badge success">✓ ENVIADO</span>';
+                        break;
+                    case 'INVALIDO':
+                        estadoBadge = '<span class="badge error">✗ INVALIDO</span>';
+                        if (item.errores && item.errores.length > 0) {
+                            detalles = '<ul class="error-list">';
+                            item.errores.forEach(err => {
+                                detalles += `<li>${err}</li>`;
+                            });
+                            detalles += '</ul>';
+                        }
+                        break;
+                    case 'RECHAZADO_DGII':
+                        estadoBadge = '<span class="badge warning">⚠ RECHAZADO</span>';
+                        break;
+                    case 'ERROR_PROCESO':
+                        estadoBadge = '<span class="badge error">✗ ERROR</span>';
+                        detalles = item.error || '';
+                        break;
+                }
+
+                row.innerHTML = `
+                    <td>${item.fila}</td>
+                    <td><strong>${item.encf}</strong></td>
+                    <td>${item.tipoECF}</td>
+                    <td>${estadoBadge}</td>
+                    <td>${detalles}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+
+            // Scroll to results
+            results.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function displayError(message) {
+            results.style.display = 'block';
+            results.innerHTML = `
+                <div class="alert error">
+                    <strong>❌ Error:</strong> ${message}
+                </div>
+            `;
+            results.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

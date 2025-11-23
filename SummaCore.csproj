@@ -8,7 +8,6 @@
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.AzureAppServices" Version="10.0.0" />
-    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.0" /> 
     </ItemGroup>
      <ItemGroup>
   <None Update="Models\XSDs\*.xsd">

@@ -230,10 +230,10 @@
                     <xs:element name="SubTotalMontoGravadoI1" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
                     <xs:element name="SubTotalMontoGravadoI2" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
                     <xs:element name="SubTotalMontoGravadoI3" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
-                    <xs:element name="SubTotaITBIS" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
-                    <xs:element name="SubTotaITBIS1" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
-                    <xs:element name="SubTotaITBIS2" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
-                    <xs:element name="SubTotaITBIS3" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
+                    <xs:element name="SubTotalITBIS" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
+                    <xs:element name="SubTotalITBIS1" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
+                    <xs:element name="SubTotalITBIS2" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
+                    <xs:element name="SubTotalITBIS3" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
 					          <xs:element name="SubTotalImpuestoAdicional" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
                     <xs:element name="SubTotalExento" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
                     <xs:element name="MontoSubTotal" type="Decimal18D1or2ValidationTypeMayorIgualCero" minOccurs="0" maxOccurs="1"/>
