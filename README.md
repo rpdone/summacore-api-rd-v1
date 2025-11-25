@@ -452,7 +452,7 @@ El servicio implementa firma XML según:
 
 ## 📝 Licencia
 
-Propiedad de SummaGroup Malaysia. Uso interno.
+Propiedad de SummaGroup Dominicana. Uso interno.
 
 ---
 
