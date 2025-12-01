@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ECF>
+  <Encabezado>
+    <Version>1.0</Version>
+    <IdDoc>
+      <TipoeCF>47</TipoeCF>
+      <eNCF>E470000000007</eNCF>
+      <FechaVencimientoSecuencia>31-12-2025</FechaVencimientoSecuencia>
+      <TipoPago>1</TipoPago>
+    </IdDoc>
+    <Emisor>
+      <RNCEmisor>131487272</RNCEmisor>
+      <RazonSocialEmisor>DOCUMENTOS ELECTRONICOS DE 02</RazonSocialEmisor>
+      <NombreComercial>DOCUMENTOS ELECTRONICOS DE 02</NombreComercial>
+      <DireccionEmisor>AVE. ISABEL AGUIAR NO. 269, ZONA INDUSTRIAL DE HERRERA</DireccionEmisor>
+      <Municipio>320100</Municipio>
+      <Provincia>320000</Provincia>
+      <TablaTelefonoEmisor>
+        <TelefonoEmisor>8095555555</TelefonoEmisor>
+      </TablaTelefonoEmisor>
+      <CorreoEmisor>facturacion@example.com</CorreoEmisor>
+      <FechaEmision>28-11-2025</FechaEmision>
+    </Emisor>
+    <Comprador>
+      <IdentificadorExtranjero>350555123</IdentificadorExtranjero>
+      <RazonSocialComprador>DOCUMENTOS ELECTRONICOS DE 03</RazonSocialComprador>
+    </Comprador>
+    <Totales>
+      <MontoExento>35500.00</MontoExento>
+      <MontoTotal>35500.00</MontoTotal>
+    </Totales>
+    <OtraMoneda>
+      <TipoMoneda>USD</TipoMoneda>
+      <TipoCambio>58.00</TipoCambio>
+    </OtraMoneda>
+  </Encabezado>
+  <DetallesItems>
+    <Item>
+      <NumeroLinea>1</NumeroLinea>
+      <IndicadorFacturacion p4:nil="true" xmlns:p4="http://www.w3.org/2001/XMLSchema-instance" />
+      <NombreItem>Servicios Profesionales</NombreItem>
+      <IndicadorBienoServicio>0</IndicadorBienoServicio>
+      <CantidadItem>1</CantidadItem>
+      <PrecioUnitarioItem>35500.00</PrecioUnitarioItem>
+      <MontoItem>35500.00</MontoItem>
+    </Item>
+  </DetallesItems>
+  <FechaHoraFirma>28-11-2025 13:12:07</FechaHoraFirma>
+  <Signature />
+</ECF>
