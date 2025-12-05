@@ -61,9 +61,9 @@ Editar `appsettings.json`:
 {
   "Dgii": {
     "Environment": "Certification",  // PreCertification | Certification | Production
-    "Rnc": "131487272",
+    "Rnc": "99999999",
     "RazonSocial": "TU EMPRESA SRL",
-    "CertificatePath": "13049552_identity.p12",
+    "CertificatePath": ".p12",
     "CertificatePassword": "tu_password"
   }
 }
@@ -89,7 +89,7 @@ Coloca tu archivo `.p12` en la raíz del proyecto y asegúrate de que `CopyToOut
 
 ```xml
 <ItemGroup>
-  <None Update="13049552_identity.p12">
+  <None Update="1.p12">
     <CopyToOutputDirectory>Always</CopyToOutputDirectory>
   </None>
 </ItemGroup>
